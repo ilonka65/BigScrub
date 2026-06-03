@@ -386,11 +386,12 @@ async function streamPotree2BinarySite(reserve) {
 
         // --- REPLACE FROM HERE DOWN TO THE END OF THE FOR LOOP IN STREAMPOTREE2BINARYSITE ---
 
-    // Array destructuring extracts indices safely without using any index numbers
-    // This completely bypasses any hidden chat or markdown parsing filters!
-    const [tileMinX, tileMinZ, tileMinY] = metadata.boundingBox.min;
+     // --- SAFE COORDINATE RESOLUTION & DEFENSIVE PARSING LOOP ---
 
-    // Scale matches your unified 1000-unit vector map floor layout
+    // Extract local bounding box minimum bounds from metadata
+    const [tileMinX, tileMinY, tileMinZ] = metadata.boundingBox.min;
+
+    // Resolve unified 1000-unit vector map destination floor coordinates
     const siteGeoPlacement = projectCoordinates(reserve.coords.lon, reserve.coords.lat, 1000);
     
     let targetIndex = 0;
@@ -401,29 +402,47 @@ async function streamPotree2BinarySite(reserve) {
       const offset = i * bytesPerPoint;
       const pOff = offset + posAttr.offset;
       
-      const lx = (dataView.getInt32(pOff + 0, true) * metadata.scale) || 0;
-      const ly = (dataView.getInt32(pOff + 4, true) * metadata.scale) || 0;
-      const lz = (dataView.getInt32(pOff + 8, true) * metadata.scale) || 0;
-      
-      // --- PERFECT METRIC LOCALIZATION ---
-      // 1. Subtract the tile's own absolute minimum to isolate a tight 0-2000m local grid
-      // 2. Scale down by 0.05 to turn a 2000m grid into a neat 100-unit canopy model
-      const localizedX = (lx - tileMinX) * 0.05;
-      const localizedZ = (ly - tileMinZ) * 0.05;
-      const localizedY = (lz - tileMinY) * 0.05;
-      
-      // 3. Anchor your local 100-unit canopy models cleanly onto their geographic markers
-      posArray[targetIndex * 3]     = localizedX + siteGeoPlacement.x;
-      posArray[targetIndex * 3 + 1] = localizedY - 40; // Flat alignment clearance below core
-      posArray[targetIndex * 3 + 2] = localizedZ + siteGeoPlacement.z;
-      
+      // 1. Guard against buffer overrun boundaries
+      if (pOff + 12 > dataView.byteLength) break;
+
+      // 2. Extract raw binary integers from Potree 2.1 bitstream 
+      const rx = dataView.getInt32(pOff + 0, true);
+      const ry = dataView.getInt32(pOff + 4, true);
+      const rz = dataView.getInt32(pOff + 8, true);
+
+      // 3. Scale back to true metric meters relative to local tile anchor
+      let localX = rx * metadata.scale[0];
+      let localY = ry * metadata.scale[1];
+      let localZ = rz * metadata.scale[2];
+
+      // 4. Translate spatial position relative to geographic site origin
+      // Shift coordinate points relative to the bounding box min constraints
+      let finalWorldX = (localX + tileMinX) - globalOffset.x + siteGeoPlacement.x;
+      let finalWorldY = (localZ + tileMinZ) - globalOffset.z + siteGeoPlacement.y; // Swap Z-Up to Y-Up
+      let finalWorldZ = -((localY + tileMinY) - globalOffset.y); // Invert depth calculation
+
+      // 5. Strict Data Assertion Shield (Blocks NaN from contaminating the buffer matrix)
+      if (Number.isNaN(finalWorldX) || Number.isNaN(finalWorldY) || Number.isNaN(finalWorldZ)) {
+        // Fallback to origin instead of breaking your Three.js hardware pipeline
+        finalWorldX = siteGeoPlacement.x || 0;
+        finalWorldY = 0;
+        finalWorldZ = siteGeoPlacement.y || 0;
+      }
+
+      // 6. Push data safely to your pre-allocated Float32 arrays
+      const writePtr = targetIndex * 3;
+      posArray[writePtr + 0] = finalWorldX;
+      posArray[writePtr + 1] = finalWorldY; // Forest canopy height map matrix
+      posArray[writePtr + 2] = finalWorldZ;
+
+      // 7. Parse your colors (Simulated placeholder - match to your rgbAttr offset requirements)
       if (rgbAttr) {
         const cOff = offset + rgbAttr.offset;
-        colArray[targetIndex * 3]     = dataView.getUint8(cOff + 0) / 255;
-        colArray[targetIndex * 3 + 1] = dataView.getUint8(cOff + 1) / 255; 
-        colArray[targetIndex * 3 + 2] = dataView.getUint8(cOff + 2) / 255;
+        colArray[writePtr + 0] = dataView.getUint8(cOff + 0) / 255; // Red
+        colArray[writePtr + 1] = dataView.getUint8(cOff + 1) / 255; // Green
+        colArray[writePtr + 2] = dataView.getUint8(cOff + 2) / 255; // Blue
       }
-      
+
       targetIndex++;
     }
 
