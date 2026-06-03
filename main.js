@@ -1,6 +1,8 @@
+import { INSTAL_STATE } from './src/Config.js';
 import { bigScrubEcosystem } from './speciesConfig.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { loadAndRenderEcosystemVectors } from './src/MapController.js';
 
 // ==========================================
 // 1. ENGINE RENDERER INITIALIZATION
@@ -268,92 +270,18 @@ async function buildDynamicEcosystemMatrix() {
 buildDynamicEcosystemMatrix();
 
 // ==========================================
-// 8. MAP VECTOR LAYER LOADER
+// 8.
+// Pass your active variables into the modular loader function
+loadAndRenderEcosystemVectors(scene, projectCoordinates, boundaryVectorGroup, remnantVectorGroup);
+
 // ==========================================
-async function loadAndRenderEcosystemVectors() {
-  try {
-    const boundaryRes = await fetch('./boundary.geojson');
-    if (boundaryRes.ok) {
-      const boundaryData = await boundaryRes.json();
-      const boundaryMaterial = new THREE.LineBasicMaterial({
-        color: 0x334440, 
-        transparent: true,
-        opacity: 0.4,
-        blending: THREE.AdditiveBlending
-      });
 
-      boundaryData.features.forEach(feature => {
-        if (!feature.geometry) return;
-        const coordinates = feature.geometry.coordinates;
-        const rawLines = feature.geometry.type === "LineString" ? [coordinates] : coordinates.flat(3);
-
-        const points = [];
-        for (let i = 0; i < rawLines.length - 1; i += 2) {
-          if (typeof rawLines[i] === 'number' && typeof rawLines[i+1] === 'number') {
-            const projected = projectCoordinates(rawLines[i], rawLines[i+1], 1000);
-            points.push(new THREE.Vector3(projected.x, -40, projected.z));
-          }
-        }
-        if (points.length > 0) {
-          const geometry = new THREE.BufferGeometry().setFromPoints(points);
-          const line = new THREE.Line(geometry, boundaryMaterial);
-          boundaryVectorGroup.add(line);
-        }
-      });
-    }
-
-    const remnantsRes = await fetch('./remnants.geojson');
-    if (remnantsRes.ok) {
-      const remnantsData = await remnantsRes.json();
-      const remnantMaterial = new THREE.LineBasicMaterial({
-        color: 0x00ffcc, 
-        transparent: true,
-        opacity: 0.75,
-        blending: THREE.AdditiveBlending
-      });
-
-remnantsData.features.forEach(feature => {
-if (!feature.geometry) return;
-const coordinates = feature.geometry.coordinates;
-const rawLines = feature.geometry.type === "LineString" ? [coordinates] : coordinates.flat(3);
-const points = [];
-// --- FIX 1: Update the Historical Boundary loop projection line ---
-for (let i = 0; i < rawLines.length - 1; i += 2) {
-  if (typeof rawLines[i] === 'number' && typeof rawLines[i+1] === 'number') {
-    // PASS THE ALTERNATING INDEX CHUNKS (i = longitude, i + 1 = latitude)
-    const projected = projectCoordinates(rawLines[i], rawLines[i+1], 1000);
-points.push(new THREE.Vector3(projected.x, -40, projected.z));
-  }
-}
-
-// --- FIX 2: Update the Surviving Remnants loop projection line ---
-for (let i = 0; i < rawLines.length - 1; i += 2) {
-  if (typeof rawLines[i] === 'number' && typeof rawLines[i+1] === 'number') {
-    // PASS THE ALTERNATING INDEX CHUNKS (i = longitude, i + 1 = latitude)
-    const projected = projectCoordinates(rawLines[i], rawLines[i+1], 1000);
-points.push(new THREE.Vector3(projected.x, -38, projected.z));
-  }
-}
-
-if (points.length > 0) {
-const geometry = new THREE.BufferGeometry().setFromPoints(points);
-const line = new THREE.Line(geometry, remnantMaterial);
-remnantVectorGroup.add(line);
-}
-});
-}
-console.log('Map Layers Anchored: Boundary and Remnant vectors projected.');
-} catch (error) {
-console.warn('Map Layer Load Error:', error);
-}
-}
-loadAndRenderEcosystemVectors();
-window.addEventListener('resize', () => {
-camera.aspect = window.innerWidth / window.innerHeight;
-camera.updateProjectionMatrix();
-renderer.setSize(window.innerWidth, window.innerHeight);
-});
 async function streamPotree2BinarySite(reserve) {
+    // 🛡️ THE REMNANT ISOLATION SHIELD: Skip downloading if Isolate Mode is active and this isn't our target
+  if (INSTAL_STATE.isolateMode && reserve.id !== INSTAL_STATE.activeReserveId) {
+    console.log(`ℹ️ System Guard: Isolate Mode active. Skipping download for: ${reserve.name}`);
+    return;
+  }
   try {
     // 1. First, fetch and parse structural definitions
     const metaResponse = await fetch(`${reserve.dir}metadata.json`);
@@ -483,14 +411,15 @@ async function streamPotree2BinarySite(reserve) {
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     
-    const material = new THREE.PointsMaterial({
-      size: 4.0, 
+         const material = new THREE.PointsMaterial({
+      size: INSTAL_STATE.pointAesthetic.size,
       vertexColors: true,
       transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
+      opacity: INSTAL_STATE.pointAesthetic.opacity,
+      blending: INSTAL_STATE.pointAesthetic.blending ? THREE.AdditiveBlending : THREE.NormalBlending,
       depthWrite: false
     });
+
     
     const pointCloudReserveMesh = new THREE.Points(geometry, material);
     pointCloudReserveMesh.userData = { siteId: reserve.id, nativeBaseScale: 4.0 };
