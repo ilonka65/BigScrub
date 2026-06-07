@@ -9,12 +9,12 @@ import { loadAndRenderEcosystemVectors } from './src/MapController.js';
 // ==========================================
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x05050a, 1); 
+renderer.setClearColor(0x05050a, 1);
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 500000);
-camera.position.set(0, 1500, 2500); 
+camera.position.set(0, 1500, 2500);
 
 // Locate where you initialize OrbitControls and set the focal target:
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -40,20 +40,21 @@ scene.add(remnantVectorGroup);
 const loadedLandscapeRemnants = new Map();
 
 // Real-world reserve locations matching your 1-5 index directories
+const STORAGE_BASE_URL = "https://ilonka.io";
 const targetRainforestReserves = [
-  { id: 1, name: "Victoria Park Nature Reserve",     coords: { lon: 153.41, lat: -28.90 }, dir: "./pointclouds/1/" },
-  { id: 2, name: "Booyong Flora Reserve",           coords: { lon: 153.45, lat: -28.74 }, dir: "./pointclouds/2/" },
-  { id: 3, name: "Big Scrub Flora Reserve",         coords: { lon: 153.24, lat: -28.69 }, dir: "./pointclouds/3/" },
-  { id: 4, name: "Minyon Falls Nature Reserve",     coords: { lon: 153.38, lat: -28.62 }, dir: "./pointclouds/4/" },
-  { id: 5, name: "Boomerang Falls Flora Reserve",   coords: { lon: 153.37, lat: -28.63 }, dir: "./pointclouds/5/" }
+  { id: 1, name: "Victoria Park Nature Reserve", coords: { lon: 153.41, lat: -28.90 }, dir: `${STORAGE_BASE_URL}/1/` },
+  { id: 2, name: "Booyong Flora Reserve", coords: { lon: 153.45, lat: -28.74 }, dir: `${STORAGE_BASE_URL}/2/` },
+  { id: 3, name: "Big Scrub Flora Reserve", coords: { lon: 153.24, lat: -28.69 }, dir: `${STORAGE_BASE_URL}/3/` },
+  { id: 4, name: "Minyon Falls Nature Reserve", coords: { lon: 153.38, lat: -28.62 }, dir: `${STORAGE_BASE_URL}/4/` },
+  { id: 5, name: "Boomerang Falls Flora Reserve", coords: { lon: 153.37, lat: -28.63 }, dir: `${STORAGE_BASE_URL}/5/` }
 ];
 
 // ==========================================
 // 2. SCENIC SCALE CONSTANTS
 // ==========================================
-const TRACK_SPACING = 12.0;    
-const BASE_RADIUS = 800;       
-const RING_RADIUS = 1200;      
+const TRACK_SPACING = 12.0;
+const BASE_RADIUS = 800;
+const RING_RADIUS = 1200;
 
 // ==========================================
 // 3. SCIENTIFIC MATH & UTILITIES
@@ -65,16 +66,21 @@ function projectCoordinates(lon, lat, scale = 1000) {
 }
 
 async function fetchFastaWithFallback(specimen) {
-  const pathSpace = `./genetics/${specimen.genus} ${specimen.species} alignment.fasta`;
-  const pathUnderscore = `./genetics/${specimen.genus}_${specimen.species} alignment.fasta`;
+  const G = specimen.genus;
+  const S = specimen.species;
 
-  let response = await fetch(pathSpace);
-  if (response.ok) return response;
+  // Matches your new Cyberduck underscore file structures perfectly!
+  const underscorePath = 'https://ilonka.io/genetics/' + G + '_' + S + '_alignment.fasta';
 
-  response = await fetch(pathUnderscore);
-  if (response.ok) return response;
 
-  throw new Error(`FASTA missing: ${specimen.genus} ${specimen.species}`);
+  try {
+    const response = await fetch(underscorePath);
+    if (response.ok) return response;
+  } catch (e) {
+    // Fallback or catch
+  }
+
+  throw new Error(`Genomics asset unreachable: ${G} ${S}`);
 }
 
 // ==========================================
@@ -88,11 +94,11 @@ function drawFineArc(startAngle, endAngle, radius, color, opacity) {
     points.push(new THREE.Vector3(Math.cos(theta) * radius, 0, Math.sin(theta) * radius));
   }
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ 
-    color: color, 
-    transparent: true, 
+  const material = new THREE.LineBasicMaterial({
+    color: color,
+    transparent: true,
     opacity: opacity,
-    blending: THREE.AdditiveBlending 
+    blending: THREE.AdditiveBlending
   });
   const arc = new THREE.Line(geometry, material);
   filamentGroup.add(arc);
@@ -105,7 +111,7 @@ const raycaster = new THREE.Raycaster();
 const mousePointer = new THREE.Vector2();
 let targetedTrackObject = null;
 
-raycaster.params.Points.threshold = 4.5; 
+raycaster.params.Points.threshold = 4.5;
 
 const visualHudCard = document.createElement('div');
 visualHudCard.style.cssText = `
@@ -138,17 +144,17 @@ window.analyserDataArray = null;
 
 function initializeAudioAnalysis() {
   const liveAudioElement = new Audio();
-  liveAudioElement.src = 'sounds/rainforest.mp3'; 
+  liveAudioElement.src = "https://pub-99bbf9779b8f44d6b446cf564c84fd88.r2.dev/rainforest.wav";
   liveAudioElement.loop = true;
   liveAudioElement.crossOrigin = "anonymous";
 
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const srcNode = ctx.createMediaElementSource(liveAudioElement);
   const analyserNode = ctx.createAnalyser();
-    srcNode.connect(analyserNode);
-    analyserNode.connect(ctx.destination);
-    analyserNode.fftSize = 512;
-    liveAudioElement.src = 'sounds/rainforest.wav';
+  srcNode.connect(analyserNode);
+  analyserNode.connect(ctx.destination);
+  analyserNode.fftSize = 512;
+  liveAudioElement.src = 'https://pub-99bbf9779b8f44d6b446cf564c84fd88.r2.dev/rainforest.wav';
   const dataBufferLength = analyserNode.frequencyBinCount;
   const rawDataArray = new Uint8Array(dataBufferLength);
   window.analyserDataArray = rawDataArray;
@@ -188,7 +194,7 @@ async function buildDynamicEcosystemMatrix() {
     try {
       const response = await fetchFastaWithFallback(specimen);
       const rawText = await response.text();
-      
+
       const sequences = rawText.split('\n')
         .filter(line => !line.startsWith('>') && line.trim() !== "")
         .join('')
@@ -201,13 +207,14 @@ async function buildDynamicEcosystemMatrix() {
       const positions = [];
       const colors = [];
       const trackHeightY = (index - (totalSegments / 2)) * TRACK_SPACING;
-
-      let baseTrackColor = new THREE.Color();
-      if (specimen.origin === "Gondwana") {
-        baseTrackColor.setHSL(0.35 + (index * 0.001), 0.90, 0.45); 
-      } else {
-        baseTrackColor.setHSL(0.55 + (index * 0.001), 0.95, 0.50); 
-      }
+      // Double-check safeguards to prevent any undefined state failures
+      const isGondwana = specimen.origin === "Gondwana" || specimen.lineage === "Gondwana";
+        let baseTrackColor = new THREE.Color();
+          if (isGondwana) {
+                baseTrackColor.setHSL(0.35 + (index * 0.001), 0.90, 0.45); // 🟢 Verified Gondwana Green
+          } else {
+                baseTrackColor.setHSL(0.55 + (index * 0.001), 0.95, 0.50); // 🔵 Verified Malesian Blue
+          }
 
       for (let i = 0; i < seqLength; i++) {
         const nucleotide = sequences[i];
@@ -220,9 +227,9 @@ async function buildDynamicEcosystemMatrix() {
 
         const pointColor = baseTrackColor.clone();
         if (nucleotide === '-' || nucleotide === 'N') {
-          pointColor.multiplyScalar(0.15); 
+          pointColor.multiplyScalar(0.15);
         } else if (nucleotide === 'A' || nucleotide === 'G') {
-          pointColor.addScalar(0.15); 
+          pointColor.addScalar(0.15);
         }
 
         colors.push(pointColor.r, pointColor.g, pointColor.b);
@@ -237,17 +244,17 @@ async function buildDynamicEcosystemMatrix() {
       geometry.computeBoundingSphere();
 
       const material = new THREE.PointsMaterial({
-        size: 1.5, 
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.75,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
-      });
+            size: 0.01,                     // 🌟 Shrinking the size stops the massive pixel overlapping
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.6,                    // Lower opacity allows beautiful sub-canopy layering
+            blending: THREE.NormalBlending,  // 🌟 Switching to NormalBlending reveals the true green & blue hues!
+            depthWrite: false
+        });
 
       const structuralRing = new THREE.Points(geometry, material);
-      
-      structuralRing.userData = { 
+
+      structuralRing.userData = {
         name: `${specimen.genus} ${specimen.species}`,
         common: specimen.common,
         nativeY: trackHeightY,
@@ -277,7 +284,7 @@ loadAndRenderEcosystemVectors(scene, projectCoordinates, boundaryVectorGroup, re
 // ==========================================
 
 async function streamPotree2BinarySite(reserve) {
-    // 🛡️ THE REMNANT ISOLATION SHIELD: Skip downloading if Isolate Mode is active and this isn't our target
+  // 🛡️ THE REMNANT ISOLATION SHIELD: Skip downloading if Isolate Mode is active and this isn't our target
   if (INSTAL_STATE.isolateMode && reserve.id !== INSTAL_STATE.activeReserveId) {
     console.log(`ℹ️ System Guard: Isolate Mode active. Skipping download for: ${reserve.name}`);
     return;
@@ -287,131 +294,85 @@ async function streamPotree2BinarySite(reserve) {
     const metaResponse = await fetch(`${reserve.dir}metadata.json`);
     if (!metaResponse.ok) throw new Error("metadata missing");
     const metadata = await metaResponse.json();
-    
+
     // Resolve precise attributes directly from the completed metadata object
     const posAttr = metadata.attributes.find(a => a.name === 'position');
     const rgbAttr = metadata.attributes.find(a => a.name === 'rgb');
-    const bytesPerPoint = metadata.bytesPerPoint || 35; 
+    const bytesPerPoint = metadata.bytesPerPoint || 35;
 
     // 2. Next, download the raw binary octree point buffer
     const octreeResponse = await fetch(`${reserve.dir}octree.bin`);
     if (!octreeResponse.ok) throw new Error("octree binary data missing");
     const binaryBuffer = await octreeResponse.arrayBuffer();
     const dataView = new DataView(binaryBuffer);
-    
+
     const totalPointsCount = Math.floor(binaryBuffer.byteLength / bytesPerPoint);
-    
+
     // 3. Configure stride decimation parameters to prevent hardware overloads
     const strideStep = totalPointsCount > 5000000 ? 50 : 10;
     const decimatedPointsCount = Math.floor(totalPointsCount / strideStep);
-    
+
     console.log(`⏳ Streaming ${reserve.name}: Decimating down to ${decimatedPointsCount.toLocaleString()} points for memory safety...`);
 
     const posArray = new Float32Array(decimatedPointsCount * 3);
     const colArray = new Float32Array(decimatedPointsCount * 3);
-    
+
     const globalOffset = projectCoordinates(reserve.coords.lon, reserve.coords.lat, 20000);
 
-        // --- REPLACE FROM HERE DOWN TO THE END OF THE FOR LOOP IN STREAMPOTREE2BINARYSITE ---
-
-     // --- SAFE COORDINATE RESOLUTION & DEFENSIVE PARSING LOOP ---
+    // --- SAFE COORDINATE RESOLUTION & DEFENSIVE PARSING LOOP ---
 
     // Extract local bounding box minimum bounds from metadata
     const [tileMinX, tileMinY, tileMinZ] = metadata.boundingBox.min;
 
     // Resolve unified 1000-unit vector map destination floor coordinates
     const siteGeoPlacement = projectCoordinates(reserve.coords.lon, reserve.coords.lat, 1000);
-    
+
     let targetIndex = 0;
 
+     // 4. Run the data extraction loop
     for (let i = 0; i < totalPointsCount; i += strideStep) {
-      if (targetIndex >= decimatedPointsCount) break;
+        if (targetIndex >= decimatedPointsCount) break;
 
-      const offset = i * bytesPerPoint;
-      const pOff = offset + posAttr.offset;
-      
-      // 1. Guard against buffer overrun boundaries
-      if (pOff + 12 > dataView.byteLength) break;
+        const offset = i * bytesPerPoint;
+        const pOff = offset + posAttr.offset;
 
-      // 2. Extract raw binary integers from Potree 2.1 bitstream 
-      const rx = dataView.getInt32(pOff + 0, true);
-      const ry = dataView.getInt32(pOff + 4, true);
-      const rz = dataView.getInt32(pOff + 8, true);
+        const lx = (dataView.getInt32(pOff + 0, true) * metadata.scale[0]) || 0;
+        const ly = (dataView.getInt32(pOff + 4, true) * metadata.scale[1]) || 0;
+        const lz = (dataView.getInt32(pOff + 8, true) * metadata.scale[2]) || 0;
 
-      // 3. Scale back to true metric meters relative to local tile anchor
-      let localX = rx * metadata.scale[0];
-      let localY = ry * metadata.scale[1];
-      let localZ = rz * metadata.scale[2];
+        const finalWorldX = lx + metadata.offset[0];
+        const finalWorldY = ly + metadata.offset[1];
+        const finalWorldZ = lz + metadata.offset[2];
 
-      // 4. Translate spatial position relative to geographic site origin
-      // Shift coordinate points relative to the bounding box min constraints
-      let finalWorldX = (localX + tileMinX) - globalOffset.x + siteGeoPlacement.x;
-      let finalWorldY = (localZ + tileMinZ) - globalOffset.z + siteGeoPlacement.y; // Swap Z-Up to Y-Up
-      let finalWorldZ = -((localY + tileMinY) - globalOffset.y); // Invert depth calculation
+        const writePtr = targetIndex * 3;
+        posArray[writePtr + 0] = finalWorldX;
+        posArray[writePtr + 1] = finalWorldY;
+        posArray[writePtr + 2] = finalWorldZ;
 
-      // 5. Strict Data Assertion Shield (Blocks NaN from contaminating the buffer matrix)
-      if (Number.isNaN(finalWorldX) || Number.isNaN(finalWorldY) || Number.isNaN(finalWorldZ)) {
-        // Fallback to origin instead of breaking your Three.js hardware pipeline
-        finalWorldX = siteGeoPlacement.x || 0;
-        finalWorldY = 0;
-        finalWorldZ = siteGeoPlacement.y || 0;
-      }
+        // 🎨 Procedural Color Generation (Placed safely inside the loop!)
+        const heightRatio = Math.max(0, Math.min(1, (finalWorldZ + 10) / 40));
+        
+        // Grab audio data dynamically if available
+        const audioIntensity = (typeof audioData !== 'undefined' && audioData.length > 0) 
+            ? audioData[5] / 255 
+            : 0.2;
 
-      // 6. Push data safely to your pre-allocated Float32 arrays
-      const writePtr = targetIndex * 3;
-      posArray[writePtr + 0] = finalWorldX;
-      posArray[writePtr + 1] = finalWorldY; // Forest canopy height map matrix
-      posArray[writePtr + 2] = finalWorldZ;
+        colArray[writePtr + 0] = 0.0; // Red
+        colArray[writePtr + 1] = heightRatio * (0.6 + audioIntensity * 0.4); // Green
+        colArray[writePtr + 2] = (1.0 - heightRatio) + (audioIntensity * 0.3); // Blue
 
-      // 7. Parse your colors (Simulated placeholder - match to your rgbAttr offset requirements)
-      if (rgbAttr) {
-        const cOff = offset + rgbAttr.offset;
-        colArray[writePtr + 0] = dataView.getUint8(cOff + 0) / 255; // Red
-        colArray[writePtr + 1] = dataView.getUint8(cOff + 1) / 255; // Green
-        colArray[writePtr + 2] = dataView.getUint8(cOff + 2) / 255; // Blue
-      }
-
-      targetIndex++;
+        targetIndex++;
     }
 
-    // 4. Run the data extraction loop (Safely positioned AFTER all variables are initialized!)
-    for (let i = 0; i < totalPointsCount; i += strideStep) {
-      if (targetIndex >= decimatedPointsCount) break;
-
-      const offset = i * bytesPerPoint;
-      const pOff = offset + posAttr.offset;
-      
-      const lx = (dataView.getInt32(pOff + 0, true) * metadata.scale) || 0;
-      const ly = (dataView.getInt32(pOff + 4, true) * metadata.scale) || 0;
-      const lz = (dataView.getInt32(pOff + 8, true) * metadata.scale) || 0;
-      
-      const scaledX = (lx - 538000) * 0.05;
-      const scaledZ = (ly - 6800000) * 0.05;
-      const siteGeoPlacement = projectCoordinates(reserve.coords.lon, reserve.coords.lat, 20000);
-    
-      posArray[targetIndex * 3]     = scaledX + siteGeoPlacement.x;
-    posArray[targetIndex * 3 + 1] = (lz * 0.05) - 590; // Downscale the elevation height cleanly
-    posArray[targetIndex * 3 + 2] = scaledZ + siteGeoPlacement.z;
-      
-      if (rgbAttr) {
-        const cOff = offset + rgbAttr.offset;
-        colArray[targetIndex * 3]     = dataView.getUint8(cOff + 0) / 255;
-        colArray[targetIndex * 3 + 1] = dataView.getUint8(cOff + 2) / 255; 
-        colArray[targetIndex * 3 + 2] = dataView.getUint8(cOff + 1) / 255;
-      }
-      
-      targetIndex++;
-    }
-    
     // 5. Build and force reset geometry attributes
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colArray, 3));
-    
+
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
-    
-         const material = new THREE.PointsMaterial({
+
+    const material = new THREE.PointsMaterial({
       size: INSTAL_STATE.pointAesthetic.size,
       vertexColors: true,
       transparent: true,
@@ -420,13 +381,13 @@ async function streamPotree2BinarySite(reserve) {
       depthWrite: false
     });
 
-    
+
     const pointCloudReserveMesh = new THREE.Points(geometry, material);
     pointCloudReserveMesh.userData = { siteId: reserve.id, nativeBaseScale: 4.0 };
-    
+
     mapGroup.add(pointCloudReserveMesh);
     loadedLandscapeRemnants.set(reserve.id, pointCloudReserveMesh);
-    
+
     console.log(`✅ 🌲 Landscape Layer Rendered: ${reserve.name}`);
   } catch (err) {
     console.log(`ℹ️ Landscape Status Notice: Reserve ${reserve.id} awaiting data (${err.message}).`);
@@ -438,24 +399,24 @@ async function streamPotree2BinarySite(reserve) {
 // ==========================================
 function animationLoopEngine() {
   requestAnimationFrame(animationLoopEngine);
-  
+
   controls.update();
-  const time = Date.now() * 0.001; 
+  const time = Date.now() * 0.001;
 
   // --- Spatial Frequency Modulation for Volumetric Landscapes ---
-    // --- Inside your active animationLoopEngine() frequency evaluator ---
+  // --- Inside your active animationLoopEngine() frequency evaluator ---
   if (window.analyserDataArray) {
     // FIX: Add the bracket index [0] to extract a precise number value from the array
-    const bassSignal = window.analyserDataArray[0] / 255; 
-    
+    const bassSignal = window.analyserDataArray[0] / 255;
+
     // Ensure canopySignal is tracking its index properly as well
     const highFreqCanopyIndex = Math.floor(window.analyserDataArray.length * 0.75);
     const canopySignal = window.analyserDataArray[highFreqCanopyIndex] / 255;
 
-        // --- Inside your active animationLoopEngine() audio conditional block ---
+    // --- Inside your active animationLoopEngine() audio conditional block ---
     loadedLandscapeRemnants.forEach((cloudMesh) => {
       if (!cloudMesh || !cloudMesh.material) return;
-      
+
       // 1. EXTRACT EXPLICIT INDICES NATIVELY TO PREVENT OBJECT CONFLICTS
       const rawBassByte = window.analyserDataArray ? window.analyserDataArray[0] : 0;
       const highFreqCanopyIndex = window.analyserDataArray ? Math.floor(window.analyserDataArray.length * 0.75) : 0;
@@ -465,14 +426,14 @@ function animationLoopEngine() {
       // If the audio context hasn't started yet, fall back to default stable 1.0 numbers
       const bassSignal = rawBassByte > 0 ? rawBassByte / 255 : 0.001;
       const canopySignal = rawCanopyByte > 0 ? rawCanopyByte / 255 : 0.001;
-      
+
       // Pull tracking keys safely using an alternative logical fallback switch
       const secureSiteId = cloudMesh.userData.siteId || cloudMesh.userData.id || 1;
 
       // 3. EXECUTE SAFE WebGL TRANSFORMS
       cloudMesh.material.size = cloudMesh.userData.nativeBaseScale * (1.0 + canopySignal * 1.6);
-      cloudMesh.material.needsUpdate = true; 
-      
+      cloudMesh.material.needsUpdate = true;
+
       // Every single value in this formula is now guaranteed to be a clear, finite float number
       cloudMesh.position.y = Math.sin(time * 1.5 + secureSiteId) * 15.0 * bassSignal;
     });
@@ -508,7 +469,7 @@ function animationLoopEngine() {
     });
     boundaryVectorGroup.rotation.y -= 0.00005;
     remnantVectorGroup.rotation.y -= 0.00005;
-    
+
     loadedLandscapeRemnants.forEach((cloudMesh) => {
       cloudMesh.position.y = Math.sin(time * 0.5 + cloudMesh.userData.id) * 2.0;
     });
@@ -522,13 +483,13 @@ function animationLoopEngine() {
     const primaryHit = hitIntersections[0].object; // Clean tracking index target configuration
 
     if (targetedTrackObject !== primaryHit) {
-      if (targetedTrackObject) targetedTrackObject.material.size = 1.5; 
-      
+      if (targetedTrackObject) targetedTrackObject.material.size = 1.5;
+
       targetedTrackObject = primaryHit;
-      targetedTrackObject.material.size = 4.5; 
+      targetedTrackObject.material.size = 4.5;
 
       const data = targetedTrackObject.userData;
-      visualHudCard.innerHTML = 
+      visualHudCard.innerHTML =
         '<div style="color: #00ffcc; font-size: 10px; letter-spacing: 2px; margin-bottom: 6px;">INSTALLATION INTERACTION CORE</div>' +
         '<div style="font-size: 20px; font-weight: bold; font-style: italic; color: #fff;">' + data.name + '</div>' +
         '<div style="font-size: 14px; color: #88b0a5; margin-top: 4px;">Common Name: ' + data.common + '</div>' +
@@ -553,16 +514,16 @@ animationLoopEngine();
 // ==========================================
 async function loadLandscapeReservesSequentially() {
   console.log("⏳ Initialising Hardware-Safe Landscape Loader Queue...");
-  
+
   for (const reserve of targetRainforestReserves) {
     // Awaits the absolute completion of the current reserve 
     // before allowing the next file stream to allocate memory.
     await streamPotree2BinarySite(reserve);
-    
+
     // Tiny cooling delay to allow the garbage collector to flush memory buffers
     await new Promise(resolve => setTimeout(resolve, 300));
   }
-  
+
   console.log("🌲 All available landscape remnants successfully stabilized.");
 }
 
